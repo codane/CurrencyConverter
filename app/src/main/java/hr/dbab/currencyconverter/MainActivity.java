@@ -1,8 +1,6 @@
 package hr.dbab.currencyconverter;
 
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -14,28 +12,25 @@ import android.widget.Toast;
 
 import java.util.List;
 
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProviders;
 import hr.dbab.currencyconverter.model.Currency;
-import hr.dbab.currencyconverter.rest.NetworkAPI;
-import hr.dbab.currencyconverter.rest.RetrofitClient;
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
-    Spinner spinnerFrom;
-    Spinner spinnerTo;
-    TextView tvFrom;
-    TextView tvTo;
-    TextView tvResultBuying;
-    TextView tvResultSelling;
-    Button btnConvert;
-    EditText etEntered;
-    List<Currency> currencyList;
-    String buyingRateFrom;
-    String sellingRateFrom;
-    String buyingRateTo;
-    String sellingRateTo;
-
+    private Spinner spinnerFrom;
+    private Spinner spinnerTo;
+    private TextView tvFrom;
+    private TextView tvTo;
+    private TextView tvResultBuying;
+    private TextView tvResultSelling;
+    private Button btnConvert;
+    private EditText etEntered;
+    private String buyingRateFrom;
+    private String sellingRateFrom;
+    private String buyingRateTo;
+    private String sellingRateTo;
+    private CurrencyViewModel currencyViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,38 +46,14 @@ public class MainActivity extends AppCompatActivity {
         btnConvert = findViewById(R.id.convert_button);
         etEntered = findViewById(R.id.et_entered);
 
-        loadData();
-
-        btnConvert.setOnClickListener(new View.OnClickListener() {
+        currencyViewModel = ViewModelProviders.of(this).get(CurrencyViewModel.class);
+        currencyViewModel.getCurrencyList().observe(this, new Observer<List<Currency>>() {
             @Override
-            public void onClick(View view) {
-                //checking if there is any amount entered
-                if (etEntered.getText().toString().trim().equals("")) {
-                    Toast.makeText(MainActivity.this, "You did not enter the amount", Toast.LENGTH_SHORT).show();
-                } else {
-                    convertAmount();
-                }
-            }
-        });
-    }
-    //method which gets data from the API
-    private void loadData() {
-        final NetworkAPI networkService = RetrofitClient.getClient().create(NetworkAPI.class);
-
-        Call<List<Currency>> call = networkService.getConversionRates();
-
-        call.enqueue(new Callback<List<Currency>>() {
-            @Override
-            public void onResponse(Call<List<Currency>> call, Response<List<Currency>> response) {
-                //saving all the JSON objects into a list
-                currencyList = response.body();
-
+            public void onChanged(final List<Currency> currencies) {
                 //creating an array which stores the currency codes
-                String[] availableCurrencies = new String[currencyList.size()];
-                for (int i = 0; i < currencyList.size(); i++) {
-                    availableCurrencies[i] = currencyList.get(i).getCurrencyCode();
-                }
-                //displaying those currency codes into both spinners
+                String[] availableCurrencies = currencyViewModel.getCurrencyCodeArray();
+
+                //displaying currency codes into both spinners
                 ArrayAdapter adapter = new ArrayAdapter(MainActivity.this, android.R.layout.simple_list_item_1, availableCurrencies);
                 spinnerFrom.setAdapter(adapter);
                 spinnerTo.setAdapter(adapter);
@@ -91,8 +62,8 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
                         //getting buying and selling rates from JSON object and store them into variables
-                        buyingRateFrom = currencyList.get(i).getBuyingRate();
-                        sellingRateFrom = currencyList.get(i).getSellingRate();
+                        buyingRateFrom = currencies.get(i).getBuyingRate();
+                        sellingRateFrom = currencies.get(i).getSellingRate();
                     }
 
                     @Override
@@ -104,8 +75,8 @@ public class MainActivity extends AppCompatActivity {
                 spinnerTo.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
                     @Override
                     public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
-                        buyingRateTo = currencyList.get(i).getBuyingRate();
-                        sellingRateTo = currencyList.get(i).getSellingRate();
+                        buyingRateTo = currencies.get(i).getBuyingRate();
+                        sellingRateTo = currencies.get(i).getSellingRate();
                     }
 
                     @Override
@@ -113,24 +84,26 @@ public class MainActivity extends AppCompatActivity {
 
                     }
                 });
-
             }
+        });
 
+        btnConvert.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onFailure(Call<List<Currency>> call, Throwable t) {
-                Toast.makeText(MainActivity.this, "ERROR" + t.toString(), Toast.LENGTH_SHORT).show();
-                Log.e("FAILED", t.toString());
+            public void onClick(View view) {
+                //checking if there is any amount entered
+                if (etEntered.getText().toString().trim().equals("")) {
+                    Toast.makeText(MainActivity.this, "You did not enter the amount", Toast.LENGTH_SHORT).show();                } else {
+                    convertAmount();
+                }
             }
         });
     }
-    //method which calculates the sum
-    public void convertAmount() {
+    public void convertAmount(){
         double enteredValue = Double.parseDouble(etEntered.getText().toString());
         double amountBuyingFrom = Double.parseDouble(buyingRateFrom);
         double amountSellingFrom = Double.parseDouble(sellingRateFrom);
         double amountBuyingTo = Double.parseDouble(buyingRateTo);
         double amountSellingTo = Double.parseDouble(sellingRateTo);
-
 
         //checking if both spinners have the same currency selected
         if (spinnerFrom.getSelectedItem().toString().equals(spinnerTo.getSelectedItem().toString())) {
@@ -177,8 +150,3 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 }
-
-
-
-
-
